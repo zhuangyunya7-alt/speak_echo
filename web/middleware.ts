@@ -3,11 +3,15 @@ import { createServerClient } from "@supabase/ssr";
 
 import { getPublicEnv } from "@/lib/env";
 
+/** Exact paths that require login + activation (do not use "/" in prefix lists — would match everything). */
+const PROTECTED_EXACT = ["/"];
 const PROTECTED_PREFIXES = ["/v/", "/flashcards", "/record"];
-const AUTH_PATHS = ["/auth/login", "/auth/activate", "/auth/signup"];
+/** Logged-in users skip these (go home); exclude `/auth/activate` so inactive users can submit a code. */
+const AUTH_SKIP_WHEN_LOGGED_IN = ["/auth/login", "/auth/signup"];
 const ADMIN_PREFIXES = ["/admin"];
 
-function isProtectedPath(pathname: string) {
+function needsAppGate(pathname: string) {
+  if (PROTECTED_EXACT.includes(pathname)) return true;
   return PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p));
 }
 
@@ -50,13 +54,13 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  if (user && AUTH_PATHS.includes(pathname)) {
+  if (user && AUTH_SKIP_WHEN_LOGGED_IN.includes(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);
   }
 
-  if (!user && isProtectedPath(pathname)) {
+  if (!user && needsAppGate(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
     url.searchParams.set("next", pathname);
@@ -76,7 +80,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Activation wall: logged-in but inactive users cannot access core pages.
-  if (user && isProtectedPath(pathname)) {
+  if (user && needsAppGate(pathname)) {
     try {
       const { data, error } = await supabase.from("users").select("active_until").eq("id", user.id).maybeSingle();
       const until = data?.active_until ? new Date(data.active_until).getTime() : 0;

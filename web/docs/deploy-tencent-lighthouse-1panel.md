@@ -135,13 +135,31 @@ Ensure **only one** process binds to **3000**.
 5. **HTTPS**: 申请 **Let’s Encrypt** 证书（需 **80/443** 已放行且 DNS 已指向本机）。
 6. **强制 HTTPS**（HTTP → HTTPS 跳转）在面板里打开。
 
+浏览器地址栏出现「不安全」通常是因为仍在用 **http://** 访问；完成证书并 **只用 https://speakecho.top** 打开后应显示安全连接。完成后务必把 Supabase（见 §8）里的 URL 也改为 **https**。
+
 ## 8) Supabase auth URL (production)
 
-In Supabase Dashboard → Authentication → URL configuration, set **Site URL** to `https://speakecho.top` and add **Redirect URLs** for your auth paths (`/auth/*`) as needed. Wrong URLs cause login redirect loops or failures.
+In Supabase Dashboard → Authentication → URL configuration, set **Site URL** to **`https://speakecho.top`** (not `http://`) and add **Redirect URLs** including:
 
-## 9) COS image hostname (if applicable)
+- `https://speakecho.top/**` (or the specific `/auth/*` paths you use)
+- `http://localhost:3000/**` if you still test locally
 
-[`next.config.ts`](../next.config.ts) lists `images.remotePatterns`. If your bucket hostname differs from the example, add your COS hostname there and redeploy.
+Wrong URLs cause login redirect loops or failures.
+
+## 9) COS: image hostname + CORS (thumbnails & media)
+
+1. **`next.config.ts`** lists `images.remotePatterns`. If your bucket hostname differs from the example, add your COS hostname there and redeploy.
+
+2. **视频列表缩略图**：首页卡片会优先用数据库里的 **`cover_url`**（`<img>`），失败再用 `<video>` + canvas 从 **`video_url`** 抓帧。canvas 路径需要 COS **CORS** 放行你的站点来源，否则缩略图可能一直是灰块。
+
+   In **腾讯云 COS** → 对应存储桶 → **安全管理 / 跨域访问 CORS**，增加一条规则示例：
+
+   - **来源 Origin**：`https://speakecho.top`（本地开发可加 `http://localhost:3000`）
+   - **操作 Methods**：`GET`、`HEAD`
+   - **Allow-Headers**：`*` 或按需
+   - **Expose-Headers**：按需（可留空或含 `Content-Length` 等）
+
+3. 全站 **HTTPS** 后，请确保 **`video_url` / `cover_url` 在库里是 `https://`**，避免混合内容被浏览器拦截。
 
 ## 10) Desktop uploader after go-live
 
@@ -149,12 +167,25 @@ In Supabase Dashboard → Authentication → URL configuration, set **Site URL**
 2. Set **`publish_api_url`** to `https://speakecho.top/api/publish-video`.
 3. Set **`publish_api_token`** to the same value as server **`PUBLISH_API_TOKEN`** (header `x-publish-token`; see [`publish-video` route](../app/api/publish-video/route.ts)).
 
-## 11) Smoke test
+## 11) After you push code: redeploy on the server
 
-- `https://speakecho.top` loads.
-- Login/signup (if using Supabase auth) works.
+```bash
+cd /opt/speakecho/speak_echo && git pull
+cd web && npm ci && npm run build
+pm2 restart speakecho-web
+```
+
+Adjust paths to match your server. If the PM2 app name differs, use `pm2 list` / `pm2 restart <name>`.
+
+## 12) Smoke test
+
+- Open **`https://speakecho.top`** only (no browser “Not secure” once SSL is enabled).
+- **Logged out** → visiting `/` should redirect to **login** (middleware gate).
+- **Logged in** and activated → home, flashcards, record; **Logout** → login page.
+- Login / signup / activation (Supabase) works; **Site URL** uses **https**.
+- Home video cards show thumbnails when `cover_url` works or COS **CORS** allows video frame capture.
 - Admin/API routes behave as expected.
-- Optional: `curl -I https://speakecho.top/api/...` for quick headers check.
+- Optional: `curl -I https://speakecho.top/api/...`
 
 ## Troubleshooting
 

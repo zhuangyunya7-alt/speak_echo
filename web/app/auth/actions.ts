@@ -199,6 +199,6 @@ export async function redeemActivationCodeAction(formData: FormData) {
 export async function logoutAction() {
   const supabase = await createSupabaseServerClient();
   if (supabase) await supabase.auth.signOut();
-  redirect("/");
+  redirect("/auth/login");
 }
 

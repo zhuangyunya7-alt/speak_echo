@@ -33,8 +33,12 @@ export function LocalVideoThumb({
   alt: string;
   fallbackCoverUrl?: string | null;
 }) {
+  const cover = useMemo(() => (fallbackCoverUrl?.trim() ?? ""), [fallbackCoverUrl]);
+  const [coverFailed, setCoverFailed] = useState(false);
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+
+  const preferCover = cover.length > 0 && !coverFailed;
 
   const cached = useMemo(() => readCache(videoUrl), [videoUrl]);
   useEffect(() => {
@@ -42,7 +46,9 @@ export function LocalVideoThumb({
   }, [cached]);
 
   useEffect(() => {
-    if (dataUrl || failed) return;
+    const skipVideo = cover.length > 0 && !coverFailed;
+    if (skipVideo || dataUrl || failed) return;
+
     let cancelled = false;
 
     const v = document.createElement("video");
@@ -95,14 +101,21 @@ export function LocalVideoThumb({
       v.removeEventListener("error", onError);
       cleanup();
     };
-  }, [videoUrl, dataUrl, failed]);
+  }, [cover, coverFailed, videoUrl, dataUrl, failed]);
+
+  if (preferCover) {
+    return (
+      <img
+        src={cover}
+        alt={alt}
+        className="h-full w-full object-cover"
+        onError={() => setCoverFailed(true)}
+      />
+    );
+  }
 
   if (dataUrl) {
     return <img src={dataUrl} alt={alt} className="h-full w-full object-cover" />;
-  }
-
-  if (failed && fallbackCoverUrl) {
-    return <img src={fallbackCoverUrl} alt={alt} className="h-full w-full object-cover" />;
   }
 
   return (
@@ -111,4 +124,3 @@ export function LocalVideoThumb({
     </div>
   );
 }
-
