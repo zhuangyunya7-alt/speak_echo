@@ -197,6 +197,7 @@ Adjust paths to match your server. If the PM2 app name differs, use `pm2 list` /
 | Video will not play (private COS) | `COS_SECRET_ID` / `COS_SECRET_KEY` set; bucket policy matches URL host in DB |
 | Connection refused on publish from PC | Uploader `publish_api_url` still `localhost:3000`; use HTTPS domain |
 | Mixed content / auth errors | `NEXT_PUBLIC_*` not set in production env; rebuild after env change |
+| Home video cards gray, no thumb | Set COS **CORS** for `https://speakecho.top`; ensure `cover_url` / `video_url` are **https** |
 
 ## Reference in repo
 
