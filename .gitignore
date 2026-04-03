@@ -1,0 +1,21 @@
+# Local staging assets (large binaries); keep README in repo if needed
+content-inbox/*
+!content-inbox/README.md
+
+# Secrets (copy from *.example)
+uploader-desktop/data/config.json
+web/.env.local
+web/.env.production
+
+# Python
+uploader-desktop/.venv/
+**/__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.egg-info/
+.eggs/
+
+# OS / editor
+Thumbs.db
+.cursor/plans/

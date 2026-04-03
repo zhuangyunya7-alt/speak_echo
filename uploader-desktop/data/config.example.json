@@ -1,0 +1,10 @@
+{
+  "publish_api_url": "https://speakecho.top/api/publish-video",
+  "publish_api_token": "",
+  "cos_bucket": "",
+  "cos_region": "ap-shanghai",
+  "cos_secret_id": "",
+  "cos_secret_key": "",
+  "cdn_domain": "",
+  "taxonomy_json_path": ""
+}
