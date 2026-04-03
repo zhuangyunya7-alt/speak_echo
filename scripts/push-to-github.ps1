@@ -5,7 +5,6 @@ param(
   [string]$Description = "SpeakEcho MVP: curated video English practice"
 )
 
-$ErrorActionPreference = "Stop"
 Set-Location (Join-Path $PSScriptRoot "..")
 
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
@@ -13,8 +12,12 @@ if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
   exit 1
 }
 
-gh auth status 2>&1 | Out-Null
-if ($LASTEXITCODE -ne 0) {
+$prevEap = $ErrorActionPreference
+$ErrorActionPreference = "SilentlyContinue"
+gh auth status 2>$null | Out-Null
+$authed = ($LASTEXITCODE -eq 0)
+$ErrorActionPreference = $prevEap
+if (-not $authed) {
   Write-Host "Not logged in. Run this in the same terminal first:"
   Write-Host "  gh auth login"
   Write-Host "Then run this script again."
