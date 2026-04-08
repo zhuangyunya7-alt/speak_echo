@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { PhraseSpan, SubtitleSegment, WordToken } from "@/lib/domain/types";
+import type { Flashcard, PhraseSpan, SubtitleSegment, WordToken } from "@/lib/domain/types";
+import { TranscriptCustomFlashcardPanel } from "@/components/player/TranscriptCustomFlashcardPanel";
 import type { ActiveWord } from "@/components/player/transcriptUtils";
 import { fmtStamp } from "@/components/player/transcriptUtils";
 
@@ -98,6 +99,7 @@ export function TranscriptPane({
   onSeek,
   onWordClick,
   listMaxHeightClass,
+  customFlashcard,
 }: {
   subtitles: SubtitleSegment[];
   active: ActiveWord;
@@ -123,6 +125,13 @@ export function TranscriptPane({
     phrase: { text: string; reason?: string | null; zh?: string | null; wStart: number; wEnd: number; surface: string } | null,
   ) => void;
   listMaxHeightClass?: string;
+  /** 划词自定义闪卡；不传则不启用选区收藏。 */
+  customFlashcard?: {
+    video: { id: string; title: string };
+    addFlashcard: (draft: Omit<Flashcard, "id" | "user_id" | "created_at">) => Promise<string>;
+    patchFlashcard: (id: string, patch: Partial<Flashcard>) => Promise<void>;
+    byFlashcardWord: (word: string) => Flashcard | null;
+  };
 }) {
   const [openPanel, setOpenPanel] = useState<null | "scroll" | "loop">(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -294,12 +303,22 @@ export function TranscriptPane({
         </div>
       </div>
 
+      <div className="border-b border-zinc-200 bg-[#602D89]/[0.06] px-4 py-2.5 dark:border-zinc-800 dark:bg-[#9D6AD6]/10">
+        <p className="text-center text-xs font-medium text-[#602D89] dark:text-[#C8A6EB]">
+          快捷键：<kbd className="rounded border border-[#602D89]/30 bg-white/90 px-1.5 py-0.5 font-mono text-[11px] dark:border-[#9D6AD6]/35 dark:bg-zinc-950/80">↑</kbd>{" "}
+          上一句 ·{" "}
+          <kbd className="rounded border border-[#602D89]/30 bg-white/90 px-1.5 py-0.5 font-mono text-[11px] dark:border-[#9D6AD6]/35 dark:bg-zinc-950/80">↓</kbd>{" "}
+          下一句 · 在英文上划词可添加自定义闪卡
+        </p>
+      </div>
+
       <div ref={listRef} className={[listMaxHeightClass ?? "max-h-[82dvh]", "overflow-auto p-2"].join(" ")}>
         {subtitles.map((seg, idx) => {
           const isActive = active?.segIndex === idx;
           return (
             <div
               key={`${seg.start}-${idx}`}
+              data-seg-index={idx}
               ref={(el) => {
                 lineRefs.current[idx] = el;
               }}
@@ -321,7 +340,7 @@ export function TranscriptPane({
                     {fmtStamp(seg.start)}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-base leading-7 text-zinc-900 dark:text-zinc-100">
+                    <div className="select-text text-base leading-7 text-zinc-900 dark:text-zinc-100">
                       {(seg.words ?? []).length > 0 && !shouldFallbackToRawText(seg) ? (
                         <span className="space-x-1">
                           {(() => {
@@ -432,6 +451,18 @@ export function TranscriptPane({
           );
         })}
       </div>
+
+      {customFlashcard ? (
+        <TranscriptCustomFlashcardPanel
+          listRef={listRef}
+          subtitles={subtitles}
+          classifyWord={classifyWord}
+          video={customFlashcard.video}
+          byFlashcardWord={customFlashcard.byFlashcardWord}
+          addFlashcard={customFlashcard.addFlashcard}
+          patchFlashcard={customFlashcard.patchFlashcard}
+        />
+      ) : null}
     </div>
   );
 }

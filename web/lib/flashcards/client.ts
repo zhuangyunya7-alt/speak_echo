@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createSupabaseBrowserClient, safeGetBrowserUser } from "@/lib/supabase/browser";
 import type { Flashcard } from "@/lib/domain/types";
+import { normalizeFlashcardWordSurface } from "@/lib/text/flashcardWord";
 
 const LS_KEY = "speakecho.flashcards.v1";
 
@@ -34,12 +35,17 @@ function writeLocal(userId: string | null, cards: Flashcard[]) {
   window.localStorage.setItem(LS_KEY, JSON.stringify(all));
 }
 
+function flashcardLemmaKey(word: string): string {
+  const n = normalizeFlashcardWordSurface(word);
+  return (n || word.trim()).toLowerCase();
+}
+
 function dedupeCards(cards: Flashcard[]): Flashcard[] {
   const seen = new Set<string>();
   const out: Flashcard[] = [];
   for (const c of cards) {
     const key = [
-      c.word.toLowerCase(),
+      flashcardLemmaKey(c.word),
       c.video_id ?? "",
       c.segment_start ?? "",
       c.word_start ?? "",
@@ -109,13 +115,15 @@ export function useFlashcards() {
   }, [supabase]);
 
   const add = useCallback(
-    async (draft: Omit<Flashcard, "id" | "user_id" | "created_at">) => {
+    async (draft: Omit<Flashcard, "id" | "user_id" | "created_at">): Promise<string> => {
       const now = new Date().toISOString();
+      const wordStored = normalizeFlashcardWordSurface(draft.word) || draft.word.trim();
       const temp: Flashcard = {
         id: crypto.randomUUID(),
         user_id: userId ?? "anonymous",
         created_at: now,
         ...draft,
+        word: wordStored,
       };
 
       setCards((prev) => {
@@ -137,8 +145,33 @@ export function useFlashcards() {
         }
 
         if (error) {
-          // keep local fallback
-          return;
+          /* keep local fallback */
+        }
+      }
+      return temp.id;
+    },
+    [supabase, userId],
+  );
+
+  const patch = useCallback(
+    async (id: string, fields: Partial<Flashcard>) => {
+      setCards((prev) => {
+        const next = prev.map((c) => (c.id === id ? { ...c, ...fields } : c));
+        writeLocal(userId, next);
+        return next;
+      });
+
+      if (supabase && userId) {
+        try {
+          const payload: Record<string, unknown> = {};
+          if ("phonetic" in fields) payload.phonetic = fields.phonetic;
+          if ("part_of_speech" in fields) payload.part_of_speech = fields.part_of_speech;
+          if ("meaning_zh" in fields) payload.meaning_zh = fields.meaning_zh;
+          if (Object.keys(payload).length > 0) {
+            await supabase.from("flashcards").update(payload).eq("id", id);
+          }
+        } catch {
+          /* local state already updated */
         }
       }
     },
@@ -165,10 +198,10 @@ export function useFlashcards() {
   );
 
   const byWord = useCallback(
-    (word: string) => cards.find((c) => c.word.toLowerCase() === word.toLowerCase()) ?? null,
+    (word: string) => cards.find((c) => flashcardLemmaKey(c.word) === flashcardLemmaKey(word)) ?? null,
     [cards],
   );
 
-  return { ready, cards, add, remove, byWord };
+  return { ready, cards, add, patch, remove, byWord };
 }
 

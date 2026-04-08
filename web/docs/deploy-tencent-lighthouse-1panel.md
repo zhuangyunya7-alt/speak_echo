@@ -169,6 +169,8 @@ Wrong URLs cause login redirect loops or failures.
 
 ## 11) After you push code: redeploy on the server
 
+### Manual (SSH)
+
 ```bash
 cd /opt/speakecho/speak_echo && git pull
 cd web && npm ci && npm run build
@@ -176,6 +178,22 @@ pm2 restart speakecho-web
 ```
 
 Adjust paths to match your server. If the PM2 app name differs, use `pm2 list` / `pm2 restart <name>`.
+
+### Automatic: GitHub Actions (push `main` → deploy)
+
+The repo includes [`.github/workflows/deploy-lighthouse.yml`](../../.github/workflows/deploy-lighthouse.yml). On every push to **`main`** (and via **Actions → Deploy to Lighthouse → Run workflow**), the workflow SSHs into Lighthouse and runs the same commands as above.
+
+**One-time setup in GitHub:** Repository → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**:
+
+| Secret name | Value |
+|-------------|--------|
+| `LIGHTHOUSE_HOST` | Server public IP or hostname |
+| `LIGHTHOUSE_USER` | SSH user (e.g. `root` or `ubuntu`) |
+| `LIGHTHOUSE_SSH_KEY` | Private key PEM (full text including `BEGIN` / `END` lines) |
+
+Use a **dedicated deploy key** (recommended): generate a key pair, add the **public** key to the server user’s `~/.ssh/authorized_keys`, store the **private** key only in `LIGHTHOUSE_SSH_KEY`. Ensure the **Tencent firewall** allows GitHub’s outbound IPs on port **22**, or use a fixed runner / IP allowlist if you restrict SSH.
+
+**Server prerequisites:** same as manual deploy — repo at `/opt/speakecho/speak_echo` (or edit the workflow path), `git pull` must work non-interactively (deploy key for GitHub or HTTPS credential), Node + `pm2` + app name `speakecho-web`.
 
 ## 12) Smoke test
 

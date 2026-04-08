@@ -1,0 +1,40 @@
+# Push to main → SSH into Tencent Lighthouse → pull, build web, PM2 restart.
+# Configure GitHub repo Secrets (Settings → Secrets and variables → Actions):
+#   LIGHTHOUSE_HOST     — 公网 IP 或域名（如 49.x.x.x）
+#   LIGHTHOUSE_USER     — SSH 登录用户（常见 root 或 ubuntu）
+#   LIGHTHOUSE_SSH_KEY  — 私钥全文（PEM，含 -----BEGIN ... -----）
+#
+# Server must already have: repo cloned at DEPLOY_PATH, git pull creds, Node, PM2, app name speakecho-web.
+# If your path or PM2 name differs, edit this file or adjust the server to match.
+
+name: Deploy to Lighthouse
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-lighthouse
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH deploy (git pull, npm build, pm2)
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.LIGHTHOUSE_HOST }}
+          username: ${{ secrets.LIGHTHOUSE_USER }}
+          key: ${{ secrets.LIGHTHOUSE_SSH_KEY }}
+          command_timeout: 30m
+          script_stop: true
+          script: |
+            set -e
+            cd /opt/speakecho/speak_echo
+            git pull
+            cd web
+            npm ci
+            npm run build
+            pm2 restart speakecho-web

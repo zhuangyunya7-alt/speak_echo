@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/components/ui/cn";
 import { normalizePhraseSidecarZhReason } from "@/lib/domain/phraseSidecar";
 import type { PhraseSpan, SubtitleSegment, VocabDisplayEntry } from "@/lib/domain/types";
+import { resolveSeekTimeInSegment } from "@/components/player/transcriptUtils";
 
 type DictPhonetic = { text?: string };
 type DictApiEntry = {
@@ -196,7 +197,7 @@ export function DesktopVocabCards({
             kind: "word",
             key,
             display: vis || w.w,
-            seekTime: w.s,
+            seekTime: resolveSeekTimeInSegment(seg, w.s),
             segIndex,
             exampleEn,
             exampleZh,
@@ -225,7 +226,7 @@ export function DesktopVocabCards({
           display: surface,
           reason: p.reason ?? null,
           zh: p.zh ?? null,
-          seekTime: firstTok.s,
+          seekTime: resolveSeekTimeInSegment(seg, firstTok.s),
           segIndex,
           exampleEn,
           exampleZh,

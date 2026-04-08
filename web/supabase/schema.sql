@@ -192,7 +192,17 @@ begin
     create policy flashcards_delete_own on public.flashcards
       for delete using (auth.uid() = user_id);
   end if;
+
+  if not exists (
+    select 1 from pg_policies where schemaname = 'public' and tablename = 'flashcards' and policyname = 'flashcards_update_own'
+  ) then
+    create policy flashcards_update_own on public.flashcards
+      for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  end if;
 end $$;
+
+-- curated | custom（划词）；既有库可安全追加
+alter table public.flashcards add column if not exists source text;
 
 -- Optional media / sidecar URLs on videos (COS). Safe to re-run.
 alter table public.videos add column if not exists description text;

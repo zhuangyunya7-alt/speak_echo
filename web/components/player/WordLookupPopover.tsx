@@ -7,6 +7,8 @@ import { normalizeVocabLemma } from "@/lib/domain/vocabDisplay";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useFlashcards } from "@/lib/flashcards/client";
+import { normalizeFlashcardWordSurface } from "@/lib/text/flashcardWord";
+import { clampTimeToSegment, resolveSeekTimeInSegment } from "@/components/player/transcriptUtils";
 
 type DictResult = {
   phonetic?: string;
@@ -33,9 +35,14 @@ function derivePhraseFromSegment(
   const phrases = segment.phrases ?? [];
   if (words.length === 0 || phrases.length === 0) return null;
 
-  // Prefer matching by timestamp first; fallback to first same-token match.
-  const byTime = words.findIndex((w) => Math.abs(w.s - word.s) < 0.001 && Math.abs(w.e - word.e) < 0.001);
-  const wi = byTime >= 0 ? byTime : words.findIndex((w) => w.w === word.w);
+  // Prefer time+surface match so duplicated timestamps (bad align) don't grab the wrong token.
+  let wi = words.findIndex(
+    (w) => w.w === word.w && Math.abs(w.s - word.s) < 0.001 && Math.abs(w.e - word.e) < 0.001,
+  );
+  if (wi < 0) {
+    wi = words.findIndex((w) => Math.abs(w.s - word.s) < 0.001 && Math.abs(w.e - word.e) < 0.001);
+  }
+  if (wi < 0) wi = words.findIndex((w) => w.w === word.w);
   if (wi < 0) return null;
 
   let hit: (typeof phrases)[number] | null = null;
@@ -152,8 +159,8 @@ export function WordLookupPopover({
     return normalizePhraseSidecarZhReason(effectivePhrase.zh, effectivePhrase.reason);
   }, [effectivePhrase?.zh, effectivePhrase?.reason]);
   const flashcardWord = useMemo(() => {
-    if (isPhraseClick) return effectivePhrase?.surface ?? effectivePhrase?.text ?? current;
-    return current;
+    const raw = isPhraseClick ? effectivePhrase?.surface ?? effectivePhrase?.text ?? current : current;
+    return normalizeFlashcardWordSurface(raw) || raw.trim();
   }, [current, effectivePhrase, isPhraseClick]);
   const saved = useMemo(() => (flashcardWord ? byWord(flashcardWord) : null), [byWord, flashcardWord]);
 
@@ -285,14 +292,16 @@ export function WordLookupPopover({
   if (!open || !word || !segment) return null;
 
   const headerWord = isPhraseClick ? effectivePhrase?.surface ?? effectivePhrase?.text ?? current : word.w;
-  const phraseWordStart =
+  const phraseWordStartRaw =
     isPhraseClick && effectivePhrase && segment.words?.length
       ? segment.words[effectivePhrase.wStart]?.s ?? word.s
       : word.s;
-  const phraseWordEnd =
+  const phraseWordEndRaw =
     isPhraseClick && effectivePhrase && segment.words?.length
       ? segment.words[effectivePhrase.wEnd]?.e ?? word.e
       : word.e;
+  const phraseWordStart = resolveSeekTimeInSegment(segment, phraseWordStartRaw);
+  const phraseWordEnd = clampTimeToSegment(segment, phraseWordEndRaw);
 
   return (
     <div className="fixed inset-0 z-50">
@@ -384,6 +393,7 @@ export function WordLookupPopover({
                   segment_end: segment.end,
                   word_start: phraseWordStart,
                   word_end: phraseWordEnd,
+                  source: "curated",
                 });
                 onClose();
               }}

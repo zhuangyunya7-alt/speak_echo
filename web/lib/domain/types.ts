@@ -80,5 +80,7 @@ export type Flashcard = {
   word_start?: number | null;
   word_end?: number | null;
   created_at?: string;
+  /** 点词收藏为 curated；划词自定义为 custom（无列时仅本地/API 可选字段）。 */
+  source?: "curated" | "custom" | null;
 };
 

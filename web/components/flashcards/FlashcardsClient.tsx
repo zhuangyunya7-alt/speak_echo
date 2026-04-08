@@ -202,7 +202,8 @@ export function FlashcardsClient() {
 
       {cards.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-10 text-center text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
-          还没有闪卡。打开一个视频，点击字幕里的单词即可收藏。
+          <p>还没有闪卡。打开一个视频，点击字幕里的难词即可收藏。</p>
+          <p className="mt-2">也可以在英文字幕上划选词句，添加「自定义闪卡」。</p>
         </div>
       ) : mode === "list" ? (
         <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
@@ -255,7 +256,14 @@ export function FlashcardsClient() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <div className="truncate text-base font-semibold text-zinc-900 dark:text-zinc-100">{c.word}</div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="truncate text-base font-semibold text-zinc-900 dark:text-zinc-100">{c.word}</span>
+                        {c.source === "custom" ? (
+                          <span className="shrink-0 rounded-md border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-zinc-400">
+                            自定义
+                          </span>
+                        ) : null}
+                      </div>
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
                         {c.phonetic ? <span>{c.phonetic}</span> : null}
                         {c.part_of_speech ? (

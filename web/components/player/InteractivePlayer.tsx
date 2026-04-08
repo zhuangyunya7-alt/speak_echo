@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SubtitleSegment, Video, WordToken } from "@/lib/domain/types";
 import { WordLookupPopover } from "@/components/player/WordLookupPopover";
 import { addWatchSeconds } from "@/lib/record/client";
-import { pickActive, type ActiveWord } from "@/components/player/transcriptUtils";
+import { pickActive, resolveNavSegIndex, type ActiveWord } from "@/components/player/transcriptUtils";
 import { TranscriptPane } from "@/components/player/TranscriptPane";
 import { VideoPane } from "@/components/player/VideoPane";
 import { useVocabularyLevels } from "@/components/player/vocabularyLevels";
@@ -39,6 +39,8 @@ export function InteractivePlayer({
   const desktopListRef = useRef<HTMLDivElement | null>(null);
   const mobileLineRefs = useRef<Array<HTMLDivElement | null>>([]);
   const desktopLineRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const mobilePlayerWrapRef = useRef<HTMLDivElement | null>(null);
+  const desktopPlayerWrapRef = useRef<HTMLDivElement | null>(null);
   const watchRef = useRef<{ startedAt: number | null }>({ startedAt: null });
 
   const [isDesktop, setIsDesktop] = useState<boolean>(false);
@@ -59,7 +61,17 @@ export function InteractivePlayer({
   }>({ open: false, word: null, segment: null, phrase: null, anchorRect: null });
 
   const rates = useMemo(() => [0.5, 0.75, 1.0, 1.25, 1.5], []);
-  const { ready: flashReady, cards } = useFlashcards();
+  const { ready: flashReady, cards, add, patch, byWord } = useFlashcards();
+
+  const customFlashcard = useMemo(
+    () => ({
+      video: { id: video.id, title: video.title },
+      addFlashcard: add,
+      patchFlashcard: patch,
+      byFlashcardWord: byWord,
+    }),
+    [video.id, video.title, add, patch, byWord],
+  );
 
   const assetBase = useMemo(() => {
     if (video.video_url.startsWith("/videos/")) {
@@ -340,6 +352,41 @@ export function InteractivePlayer({
     playVideo(el);
   }, [getVideoEl]);
 
+  const scrollPlayerIntoView = useCallback(() => {
+    const wrap = isDesktop ? desktopPlayerWrapRef.current : mobilePlayerWrapRef.current;
+    wrap?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [isDesktop]);
+
+  const seekFromVocabCard = useCallback(
+    (t: number, segIndex?: number) => {
+      seekTo(t, segIndex);
+      requestAnimationFrame(() => scrollPlayerIntoView());
+    },
+    [seekTo, scrollPlayerIntoView],
+  );
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      const subs = subtitlesRef.current;
+      if (!subs.length) return;
+      e.preventDefault();
+      const el = getVideoEl();
+      const tNow = el?.currentTime ?? 0;
+      const hint = lastActiveRef.current;
+      const base = resolveNavSegIndex(subs, tNow, hint);
+      const nextIdx =
+        e.key === "ArrowUp" ? Math.max(0, base - 1) : Math.min(subs.length - 1, base + 1);
+      const seg = subs[nextIdx];
+      if (!seg) return;
+      seekTo(seg.start, nextIdx);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [getVideoEl, seekTo]);
+
   const openLookup = useCallback(
     (
       word: WordToken,
@@ -357,7 +404,10 @@ export function InteractivePlayer({
     <div className="space-y-5">
       {/* Vertical layout: mobile / portrait (< lg) */}
       <div className="grid gap-4 lg:hidden">
-        <div className="relative overflow-hidden rounded-2xl border border-zinc-200 bg-black dark:border-zinc-800">
+        <div
+          ref={mobilePlayerWrapRef}
+          className="relative overflow-hidden rounded-2xl border border-zinc-200 bg-black dark:border-zinc-800"
+        >
           <video
             ref={mobileVideoRef}
             className="h-full w-full"
@@ -417,20 +467,23 @@ export function InteractivePlayer({
           onSeek={(t, idx) => seekTo(t, idx)}
           onWordClick={(w, seg, rect, phrase) => openLookup(w, seg, rect, phrase)}
           listMaxHeightClass="max-h-[58dvh]"
+          customFlashcard={customFlashcard}
         />
       </div>
 
       {/* Desktop layout: side-by-side grid (lg+) */}
       <div className="hidden lg:grid gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,1.75fr)_minmax(0,1fr)]">
-        <VideoPane
-          video={video}
-          videoRef={desktopVideoRef}
-          playbackRate={playbackRate}
-          rates={rates}
-          onChangeRate={setPlaybackRate}
-          localAssetBase={assetBase}
-          canEdit={isAdmin}
-        />
+        <div ref={desktopPlayerWrapRef} className="min-w-0">
+          <VideoPane
+            video={video}
+            videoRef={desktopVideoRef}
+            playbackRate={playbackRate}
+            rates={rates}
+            onChangeRate={setPlaybackRate}
+            localAssetBase={assetBase}
+            canEdit={isAdmin}
+          />
+        </div>
         <TranscriptPane
           subtitles={subtitles}
           active={active}
@@ -449,6 +502,7 @@ export function InteractivePlayer({
           classifyWord={classifyWord}
           onSeek={(t, idx) => seekTo(t, idx)}
           onWordClick={(w, seg, rect, phrase) => openLookup(w, seg, rect, phrase)}
+          customFlashcard={customFlashcard}
         />
       </div>
 
@@ -476,7 +530,7 @@ export function InteractivePlayer({
         subtitles={subtitles}
         classifyWord={classifyWord}
         vocabDisplay={vocabDisplayEntries}
-        onSeek={seekTo}
+        onSeek={seekFromVocabCard}
       />
       <DesktopSceneTemplates subtitles={subtitles} onSeek={seekTo} />
 
