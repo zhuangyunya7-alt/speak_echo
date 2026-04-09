@@ -1,4 +1,8 @@
 # Push to main → SSH into Tencent Lighthouse → pull, build web, PM2 restart.
+#
+# Day-to-day (after one-time server + Secrets setup): change web/ locally → commit →
+# git push origin main — this workflow runs automatically. Or: Actions → Deploy to Lighthouse → Run workflow.
+#
 # Configure GitHub repo Secrets (Settings → Secrets and variables → Actions):
 #   LIGHTHOUSE_HOST     — 公网 IP 或域名（如 49.x.x.x）
 #   LIGHTHOUSE_USER     — SSH 登录用户（常见 root 或 ubuntu）
@@ -32,7 +36,7 @@ jobs:
           script_stop: true
           script: |
             set -e
-            cd /opt/speakecho/speak_echo
+            cd /root/apps/speakecho/speak_echo
             git pull
             cd web
             npm ci
