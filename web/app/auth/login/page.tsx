@@ -38,6 +38,17 @@ export default async function LoginPage({
           立即注册
         </Link>
       </div>
+
+      <p className="mt-16 pb-2 text-center text-xs text-zinc-500 dark:text-zinc-500">
+        <a
+          href="https://www.miit.gov.cn/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-zinc-700 hover:underline dark:hover:text-zinc-300"
+        >
+          闽ICP备2026009473号-1
+        </a>
+      </p>
     </div>
   );
 }
