@@ -1,3 +1,4 @@
+import { IcpBeianLink } from "@/components/IcpBeianLink";
 import { FiltersBar } from "@/components/videos/FiltersBar";
 import { VideoCard } from "@/components/videos/VideoCard";
 import { listVideos } from "@/lib/data/videos";
@@ -20,7 +21,8 @@ export default async function Home({
   const creators = Array.from(new Set(all.map((v) => v.author))).sort((a, b) => a.localeCompare(b));
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+    <div className="flex min-h-[calc(100dvh-4.5rem)] flex-col">
+    <div className="grid flex-1 gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
       <div className="hidden lg:block">
         <LearningSidebarClientOnly />
       </div>
@@ -51,6 +53,8 @@ export default async function Home({
           </div>
         )}
       </div>
+    </div>
+    <IcpBeianLink className="mt-10 pb-4" />
     </div>
   );
 }
